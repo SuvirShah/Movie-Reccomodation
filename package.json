@@ -17,6 +17,7 @@
     "fs": "^0.0.1-security",
     "neo4j-driver": "^6.2.0",
     "openai": "^7.10.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "zod": "^4.5.4"
   }
 }
