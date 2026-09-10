@@ -1,4 +1,4 @@
-import {client} from "../Movie reccomodation/2_config";
+import {client} from "../Movie reccomodation/2_config.js";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 const MovieSchema =z.object({

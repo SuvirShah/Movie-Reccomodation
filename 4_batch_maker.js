@@ -1,5 +1,7 @@
-import {parsePdf} from "../Movie reccomodation/3_pdf_parser";
-import { extractEntity } from "./5_entity_extractor";
+import {parsePDF} from "./3_pdf_parser.js";
+import { extractEntity } from "./5_entity_extractor.js";
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function chunkArray(array,chunkSize){
     const chunks=[];
@@ -10,7 +12,7 @@ function chunkArray(array,chunkSize){
 }
 
 async function processAllMovies(){
-    const movieblocks=await parsePdf("./movies.pdf");
+    const movieblocks=await parsePDF("./movies.pdf");
 
     const CONCURRENCY_LIMIT = 10; 
     const batches = chunkArray(movieblocks, CONCURRENCY_LIMIT);
