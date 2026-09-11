@@ -13,7 +13,12 @@ const ALLOWED_PROPERTIES = {
 const ALLOWED_OPERATORS = new Set(["=", "<>", ">", "<", ">=", "<=", "CONTAINS", "STARTS WITH"]);
 
 const LABEL_VAR_MAP = {
-  Movie: "m", Director: "d", Actor: "a", Genre: "g", Theme: "t", Award: "aw",
+  Movie: "m",
+  Director: "d",
+  Actor: "a",
+  Genre: "g",
+  Theme: "t",
+  Award: "aw",
 };
 
 function validateStep(step) {
@@ -23,6 +28,7 @@ function validateStep(step) {
       if (step.to && !ALLOWED_LABELS.has(step.to)) throw new Error(`Invalid label: ${step.to}`);
       if (step.rel && !ALLOWED_RELATIONSHIPS.has(step.rel)) throw new Error(`Invalid relationship: ${step.rel}`);
       break;
+
     case "filter":
       if (step.field) {
         const [label, prop] = step.field.split(".");
@@ -31,6 +37,35 @@ function validateStep(step) {
       }
       if (step.op && !ALLOWED_OPERATORS.has(step.op)) throw new Error(`Invalid operator: ${step.op}`);
       break;
+
+    case "projection":
+      if (step.fields && Array.isArray(step.fields)) {
+        for (const f of step.fields) {
+          const [label, prop] = f.split(".");
+          if (!ALLOWED_LABELS.has(label)) throw new Error(`Invalid label in projection: ${label}`);
+          if (!ALLOWED_PROPERTIES[label]?.includes(prop)) throw new Error(`Invalid property in projection: ${f}`);
+        }
+      }
+      break;
+
+    case "sort":
+      if (step.field) {
+        const [label, prop] = step.field.split(".");
+        if (!ALLOWED_LABELS.has(label)) throw new Error(`Invalid label in sort: ${label}`);
+        if (!ALLOWED_PROPERTIES[label]?.includes(prop)) throw new Error(`Invalid property in sort: ${step.field}`);
+      }
+      if (step.direction && !["ASC", "DESC"].includes(step.direction.toUpperCase())) {
+        throw new Error(`Invalid sort direction: ${step.direction}`);
+      }
+      break;
+
+    case "limit":
+      if (step.value !== null && step.value !== undefined) {
+        const n = Number(step.value);
+        if (!Number.isInteger(n) || n <= 0) throw new Error(`Invalid limit value: ${step.value}`);
+      }
+      break;
+
     default:
       break;
   }
@@ -43,6 +78,7 @@ function buildCypher(plan) {
   const matchClauses = [];
   const whereClauses = [];
   let returnClause = "";
+  let sortClause = "";
   let limitClause = "";
   const params = {};
   let paramCounter = 0;
@@ -61,9 +97,15 @@ function buildCypher(plan) {
     } else if (step.type === "projection" && step.fields && step.fields.length > 0) {
       const fields = step.fields.map((f) => {
         const [lbl, prp] = f.split(".");
-        return `${LABEL_VAR_MAP[lbl]}.${prp}`;
+        const alias = `${lbl.toLowerCase()}_${prp}`;
+        return `${LABEL_VAR_MAP[lbl]}.${prp} AS ${alias}`;
       });
       returnClause = `RETURN ${step.distinct ? "DISTINCT " : ""}${fields.join(", ")}`;
+    } else if (step.type === "sort" && step.field) {
+      const [label, prop] = step.field.split(".");
+      const varName = LABEL_VAR_MAP[label];
+      const direction = step.direction?.toUpperCase() === "DESC" ? "DESC" : "ASC";
+      sortClause = `ORDER BY ${varName}.${prop} ${direction}`;
     } else if (step.type === "limit" && step.value) {
       limitClause = `LIMIT ${step.value}`;
     }
@@ -78,6 +120,7 @@ function buildCypher(plan) {
     ...matchClauses,
     whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "",
     returnClause || "RETURN *",
+    sortClause,
     limitClause,
   ].filter((p) => p.length > 0).join("\n");
 
